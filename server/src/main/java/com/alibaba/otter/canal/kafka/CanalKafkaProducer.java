@@ -8,6 +8,8 @@ import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
+import com.alibaba.otter.canal.common.MQFlatFlatMessageUtils;
+import com.alibaba.otter.canal.protocol.FlatFlatMessage;
 import org.apache.commons.lang.StringUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
@@ -32,11 +34,11 @@ import com.alibaba.otter.canal.spi.CanalMQProducer;
  */
 public class CanalKafkaProducer implements CanalMQProducer {
 
-    private static final Logger       logger = LoggerFactory.getLogger(CanalKafkaProducer.class);
+    private static final Logger logger = LoggerFactory.getLogger(CanalKafkaProducer.class);
 
     private Producer<String, Message> producer;
-    private Producer<String, String>  producer2;                                                 // 用于扁平message的数据投递
-    private MQProperties              kafkaProperties;
+    private Producer<String, String> producer2;                                                 // 用于扁平message的数据投递
+    private MQProperties kafkaProperties;
 
     @Override
     public void init(MQProperties kafkaProperties) {
@@ -105,8 +107,8 @@ public class CanalKafkaProducer implements CanalMQProducer {
             if (!StringUtils.isEmpty(canalDestination.getDynamicTopic())) {
                 // 动态topic
                 Map<String, Message> messageMap = MQMessageUtils.messageTopics(message,
-                    canalDestination.getTopic(),
-                    canalDestination.getDynamicTopic());
+                        canalDestination.getTopic(),
+                        canalDestination.getDynamicTopic());
 
                 for (Map.Entry<String, Message> entry : messageMap.entrySet()) {
                     String topicName = entry.getKey(); //.replace('.', '_');
@@ -127,13 +129,13 @@ public class CanalKafkaProducer implements CanalMQProducer {
     }
 
     private void send(MQProperties.CanalDestination canalDestination, String topicName, Message message)
-                                                                                                        throws Exception {
+            throws Exception {
         if (!kafkaProperties.getFlatMessage()) {
             List<ProducerRecord> records = new ArrayList<ProducerRecord>();
             if (canalDestination.getPartitionHash() != null && !canalDestination.getPartitionHash().isEmpty()) {
                 Message[] messages = MQMessageUtils.messagePartition(message,
-                    canalDestination.getPartitionsNum(),
-                    canalDestination.getPartitionHash());
+                        canalDestination.getPartitionsNum(),
+                        canalDestination.getPartitionHash());
                 int length = messages.length;
                 for (int i = 0; i < length; i++) {
                     Message messagePartition = messages[i];
@@ -149,39 +151,80 @@ public class CanalKafkaProducer implements CanalMQProducer {
             produce(topicName, records, false);
         } else {
             // 发送扁平数据json
-            List<FlatMessage> flatMessages = MQMessageUtils.messageConverter(message);
-            List<ProducerRecord> records = new ArrayList<ProducerRecord>();
-            if (flatMessages != null) {
-                for (FlatMessage flatMessage : flatMessages) {
-                    if (canalDestination.getPartitionHash() != null && !canalDestination.getPartitionHash().isEmpty()) {
-                        FlatMessage[] partitionFlatMessage = MQMessageUtils.messagePartition(flatMessage,
-                            canalDestination.getPartitionsNum(),
-                            canalDestination.getPartitionHash());
-                        int length = partitionFlatMessage.length;
-                        for (int i = 0; i < length; i++) {
-                            FlatMessage flatMessagePart = partitionFlatMessage[i];
-                            if (flatMessagePart != null) {
-                                records.add(new ProducerRecord<String, String>(topicName,
-                                    i,
-                                    null,
-                                    JSON.toJSONString(flatMessagePart, SerializerFeature.WriteMapNullValue)));
+            List<FlatFlatMessage> flatMessages = MQFlatFlatMessageUtils.messageConverter(message);
+            /**
+             * 新增发送方式
+             * topic=prefix+"_"+dababasename
+             * key=tablename+keysvalue
+             * */
+            if ("true".equals(canalDestination.getIsTablePkHash())) {
+                if (flatMessages != null) {
+                    for (FlatFlatMessage flatMessage : flatMessages) {
+                        StringBuilder keyBuilder = new StringBuilder();
+                        keyBuilder.append(flatMessage.getTable());
+                        if (flatMessage.getPkNames() != null) {
+                            for (String pkName : flatMessage.getPkNames()) {
+                                keyBuilder.append(flatMessage.getData().get(pkName));
                             }
                         }
-                    } else {
-                        final int partition = canalDestination.getPartition() != null ? canalDestination.getPartition() : 0;
-                        records.add(new ProducerRecord<String, String>(topicName,
-                            partition,
-                            null,
-                            JSON.toJSONString(flatMessage, SerializerFeature.WriteMapNullValue)));
+                        //按照表名+主键做key发送
+                        produceByKeyFlatFlatMessage(topicName, keyBuilder.toString(), flatMessage);
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("Send flat message to kafka topic: [{}], packet: {}",
+                                    topicName,
+                                    JSON.toJSONString(flatMessage, SerializerFeature.WriteMapNullValue));
+                        }
                     }
+                }
 
-                    // 每条记录需要flush
-                    produce(topicName, records, true);
-                    records.clear();
+            } else {
+                if (flatMessages != null) {
+                    for (FlatFlatMessage flatMessage : flatMessages) {
+                        String key = "";
+                        try {
+                            key = flatMessage.getDatabase() + flatMessage.getTable() + flatMessage.getData().get(flatMessage.getPkNames().get(0));
+                        } catch (Exception e) {
+                            key = flatMessage.getDatabase() + flatMessage.getTable();
+                        }
+                        produceByKeyFlatFlatMessage(topicName, key, flatMessage);
+                    }
                 }
             }
         }
     }
+//            // 发送扁平数据json
+//            List<FlatMessage> flatMessages = MQMessageUtils.messageConverter(message);
+//            List<ProducerRecord> records = new ArrayList<ProducerRecord>();
+//            if (flatMessages != null) {
+//                for (FlatMessage flatMessage : flatMessages) {
+//                    if (canalDestination.getPartitionHash() != null && !canalDestination.getPartitionHash().isEmpty()) {
+//                        FlatMessage[] partitionFlatMessage = MQMessageUtils.messagePartition(flatMessage,
+//                                canalDestination.getPartitionsNum(),
+//                                canalDestination.getPartitionHash());
+//                        int length = partitionFlatMessage.length;
+//                        for (int i = 0; i < length; i++) {
+//                            FlatMessage flatMessagePart = partitionFlatMessage[i];
+//                            if (flatMessagePart != null) {
+//                                records.add(new ProducerRecord<String, String>(topicName,
+//                                        i,
+//                                        null,
+//                                        JSON.toJSONString(flatMessagePart, SerializerFeature.WriteMapNullValue)));
+//                            }
+//                        }
+//                    } else {
+//                        final int partition = canalDestination.getPartition() != null ? canalDestination.getPartition() : 0;
+//                        records.add(new ProducerRecord<String, String>(topicName,
+//                                partition,
+//                                null,
+//                                JSON.toJSONString(flatMessage, SerializerFeature.WriteMapNullValue)));
+//                    }
+//
+//                    // 每条记录需要flush
+//                    produce(topicName, records, true);
+//                    records.clear();
+//                }
+//            }
+
 
     private void produce(String topicName, List<ProducerRecord> records, boolean flatMessage) {
 
@@ -218,4 +261,12 @@ public class CanalKafkaProducer implements CanalMQProducer {
         }
     }
 
+    private void produceByKeyFlatFlatMessage(String topicName, String key, FlatFlatMessage flatFlatMessage) throws ExecutionException,
+            InterruptedException {
+        ProducerRecord<String, String> record = new ProducerRecord<String, String>(topicName,
+                key,
+                JSON.toJSONString(flatFlatMessage, SerializerFeature.WriteMapNullValue));
+        producer2.send(record).get();
+
+    }
 }

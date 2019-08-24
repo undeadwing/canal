@@ -7,6 +7,7 @@ public class CanalMQConfig {
     private Integer partitionsNum;
     private String  partitionHash;
     private String  dynamicTopic;
+    private String  isTablePkHash;
 
     public String getTopic() {
         return topic;
@@ -46,5 +47,13 @@ public class CanalMQConfig {
 
     public void setDynamicTopic(String dynamicTopic) {
         this.dynamicTopic = dynamicTopic;
+    }
+
+    public String getIsTablePkHash() {
+        return isTablePkHash;
+    }
+
+    public void setIsTablePkHash(String isTablePkHash) {
+        this.isTablePkHash = isTablePkHash;
     }
 }

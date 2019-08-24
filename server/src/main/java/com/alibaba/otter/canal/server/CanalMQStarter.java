@@ -7,7 +7,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import notice.NoticeUtil;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -159,6 +161,8 @@ public class CanalMQStarter {
                 canalDestination.setDynamicTopic(mqConfig.getDynamicTopic());
                 canalDestination.setPartitionsNum(mqConfig.getPartitionsNum());
                 canalDestination.setPartitionHash(mqConfig.getPartitionHash());
+                canalDestination.setIsTablePkHash(mqConfig.getIsTablePkHash());
+
 
                 canalServer.subscribe(clientIdentity);
                 logger.info("## the MQ producer: {} is running now ......", destination);
@@ -201,11 +205,14 @@ public class CanalMQStarter {
                         }
 
                     } catch (Exception e) {
-                        logger.error(e.getMessage(), e);
+                        logger.error(e.getMessage(), ExceptionUtils.getFullStackTrace(e));
+                        NoticeUtil.sendExceptionNotice("kafka sender",e);
+
                     }
                 }
             } catch (Exception e) {
-                logger.error("process error!", e);
+                logger.error(ExceptionUtils.getFullStackTrace(e));
+                NoticeUtil.sendExceptionNotice("process error!",e);
             }
         }
     }

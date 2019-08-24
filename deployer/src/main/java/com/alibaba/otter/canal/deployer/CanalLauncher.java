@@ -4,7 +4,9 @@ import java.io.FileInputStream;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 
+import notice.NoticeUtil;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,7 +72,9 @@ public class CanalLauncher {
                             canalStater.setProperties(properties);
                             canalStater.start();
                         } catch (Throwable throwable) {
-                            logger.error(throwable.getMessage(), throwable);
+                            logger.error(ExceptionUtils.getFullStackTrace(throwable));
+                            NoticeUtil.sendExceptionNotice("canal server on chang error",throwable);
+
                         }
                     }
                 });
@@ -101,7 +105,9 @@ public class CanalLauncher {
                 remoteConfigLoader.destroy();
             }
         } catch (Throwable e) {
-            logger.error("## Something goes wrong when starting up the canal Server:", e);
+            logger.error(ExceptionUtils.getFullStackTrace(e));
+            NoticeUtil.sendExceptionNotice("Something goes wrong when starting up the canal Server",e);
+
         }
     }
 
