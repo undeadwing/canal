@@ -159,24 +159,8 @@ public class CanalKafkaProducer implements CanalMQProducer {
              * */
             if ("true".equals(canalDestination.getIsTablePkHash())) {
                 if (flatMessages != null) {
-                    for (FlatFlatMessage flatMessage : flatMessages) {
-                        StringBuilder keyBuilder = new StringBuilder();
-                        keyBuilder.append(flatMessage.getTable());
-                        if (flatMessage.getPkNames() != null) {
-                            for (String pkName : flatMessage.getPkNames()) {
-                                keyBuilder.append(flatMessage.getData().get(pkName));
-                            }
-                        }
-                        //按照表名+主键做key发送
-                        produceByKeyFlatFlatMessage(topicName, keyBuilder.toString(), flatMessage);
-                        if (logger.isDebugEnabled()) {
-                            logger.debug("Send flat message to kafka topic: [{}], packet: {}",
-                                    topicName,
-                                    JSON.toJSONString(flatMessage, SerializerFeature.WriteMapNullValue));
-                        }
-                    }
+                    produceByKeyFlatFlatMessages(topicName,flatMessages,canalDestination);
                 }
-
             } else {
                 if (flatMessages != null) {
                     for (FlatFlatMessage flatMessage : flatMessages) {
@@ -268,5 +252,52 @@ public class CanalKafkaProducer implements CanalMQProducer {
                 JSON.toJSONString(flatFlatMessage, SerializerFeature.WriteMapNullValue));
         producer2.send(record).get();
 
+    }
+
+    private void produceByKeyFlatFlatMessages(String topicName, List<FlatFlatMessage> flatFlatMessages,MQProperties.CanalDestination canalDestination) throws ExecutionException,
+            InterruptedException {
+
+        List<Future> futures = new ArrayList<Future>();
+        try {
+            for (FlatFlatMessage flatMessage : flatFlatMessages) {
+                MQFlatFlatMessageUtils.HashMode hashMode = MQFlatFlatMessageUtils.getPartitionHashColumns(flatMessage.getTable(), canalDestination.getPartitionHash());
+                StringBuilder keyBuilder = new StringBuilder();
+                //根据配置做key
+                if(hashMode!=null){
+                    keyBuilder.append(flatMessage.getTable());
+                    for (String pkName : hashMode.pkNames) {
+                        keyBuilder.append(flatMessage.getData().get(pkName));
+                    }
+                }else{
+                    //按照表名+主键做key发送
+                    keyBuilder.append(flatMessage.getTable());
+                    if (flatMessage.getPkNames() != null) {
+                        for (String pkName : flatMessage.getPkNames()) {
+                            keyBuilder.append(flatMessage.getData().get(pkName));
+                        }
+                    }
+                }
+                ProducerRecord<String, String> record = new ProducerRecord<String, String>(topicName,
+                        keyBuilder.toString(),
+                        JSON.toJSONString(flatFlatMessages, SerializerFeature.WriteMapNullValue));
+                futures.add(producer2.send(record));
+            }
+        }finally {
+            if (logger.isDebugEnabled()) {
+                for (FlatFlatMessage record : flatFlatMessages) {
+                    logger.debug("Send  message to kafka topic: [{}], packet: {}", topicName, record.toString());
+                }
+            }
+            // 批量刷出
+            producer2.flush();
+            // flush操作也有可能是发送失败,这里需要异步关注一下发送结果,针对有异常的直接出发rollback
+            for (Future future : futures) {
+                try {
+                    future.get();
+                } catch (InterruptedException | ExecutionException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
     }
 }
