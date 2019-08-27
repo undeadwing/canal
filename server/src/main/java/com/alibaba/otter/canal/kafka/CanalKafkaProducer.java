@@ -279,7 +279,7 @@ public class CanalKafkaProducer implements CanalMQProducer {
                 }
                 ProducerRecord<String, String> record = new ProducerRecord<String, String>(topicName,
                         keyBuilder.toString(),
-                        JSON.toJSONString(flatFlatMessages, SerializerFeature.WriteMapNullValue));
+                        JSON.toJSONString(flatMessage, SerializerFeature.WriteMapNullValue));
                 futures.add(producer2.send(record));
             }
         }finally {
