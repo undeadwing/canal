@@ -1,5 +1,6 @@
 package com.alibaba.otter.canal.common.alarm;
 
+import notice.NoticeUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,6 +18,7 @@ public class LogAlarmHandler extends AbstractCanalLifeCycle implements CanalAlar
 
     public void sendAlarm(String destination, String msg) {
         logger.error("destination:{}[{}]", new Object[] { destination, msg });
+        NoticeUtil.sendNotice(destination,"","",msg);
     }
 
 }
