@@ -23,13 +23,13 @@ import com.google.common.collect.MigrateMap;
 
 /**
  * 基于定时刷新的策略的mixed实现
- * 
+ *
  * <pre>
  * 几个优化：
  * 1. 去除batch数据刷新到zk中，切换时batch数据可忽略，重新从头开始获取
  * 2. cursor的更新，启用定时刷新，合并多次请求。如果最近没有变化则不更新
  * </pre>
- * 
+ *
  * @author jianghang 2012-9-11 下午02:41:15
  * @version 1.0.0
  */
@@ -37,7 +37,7 @@ public class PeriodMixedMetaManager extends MemoryMetaManager implements CanalMe
 
     private static final Logger      logger     = LoggerFactory.getLogger(PeriodMixedMetaManager.class);
     private ScheduledExecutorService executor;
-    private ZooKeeperMetaManager     zooKeeperMetaManager;
+    private ZooKeeperMetaManager     zooKeeperMetaManager = new ZooKeeperMetaManager();
     @SuppressWarnings("serial")
     private final Position           nullCursor = new Position() {
                                                 };
@@ -46,16 +46,17 @@ public class PeriodMixedMetaManager extends MemoryMetaManager implements CanalMe
 
     public void start() {
         super.start();
-        Assert.notNull(zooKeeperMetaManager);
-        if (!zooKeeperMetaManager.isStart()) {
-            zooKeeperMetaManager.start();
-        }
+//        Assert.notNull(zooKeeperMetaManager);
+//        if (!zooKeeperMetaManager.isStart()) {
+//            zooKeeperMetaManager.start();
+//        }
 
         executor = Executors.newScheduledThreadPool(1);
         destinations = MigrateMap.makeComputingMap(new Function<String, List<ClientIdentity>>() {
 
             public List<ClientIdentity> apply(String destination) {
                 return zooKeeperMetaManager.listAllSubscribeInfo(destination);
+//                return new ArrayList<ClientIdentity>();
             }
         });
 

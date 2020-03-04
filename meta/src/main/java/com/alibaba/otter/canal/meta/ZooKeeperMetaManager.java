@@ -52,7 +52,7 @@ public class ZooKeeperMetaManager extends AbstractCanalLifeCycle implements Cana
     public void start() {
         super.start();
 
-        Assert.notNull(zkClientx);
+//        Assert.notNull(zkClientx);
     }
 
     public void stop() {
@@ -64,11 +64,11 @@ public class ZooKeeperMetaManager extends AbstractCanalLifeCycle implements Cana
         String path = ZookeeperPathUtils.getClientIdNodePath(clientIdentity.getDestination(),
             clientIdentity.getClientId());
 
-        try {
-            zkClientx.createPersistent(path, true);
-        } catch (ZkNodeExistsException e) {
-            // ignore
-        }
+//        try {
+//            zkClientx.createPersistent(path, true);
+//        } catch (ZkNodeExistsException e) {
+//            // ignore
+//        }
         if (clientIdentity.hasFilter()) {
             String filterPath = ZookeeperPathUtils.getFilterPath(clientIdentity.getDestination(),
                 clientIdentity.getClientId());
@@ -80,25 +80,25 @@ public class ZooKeeperMetaManager extends AbstractCanalLifeCycle implements Cana
                 throw new CanalMetaManagerException(e);
             }
 
-            try {
-                zkClientx.createPersistent(filterPath, bytes);
-            } catch (ZkNodeExistsException e) {
-                // ignore
-                zkClientx.writeData(filterPath, bytes);
-            }
+//            try {
+//                zkClientx.createPersistent(filterPath, bytes);
+//            } catch (ZkNodeExistsException e) {
+//                // ignore
+//                zkClientx.writeData(filterPath, bytes);
+//            }
         }
     }
 
     public boolean hasSubscribe(ClientIdentity clientIdentity) throws CanalMetaManagerException {
         String path = ZookeeperPathUtils.getClientIdNodePath(clientIdentity.getDestination(),
             clientIdentity.getClientId());
-        return zkClientx.exists(path);
+        return false;
     }
 
     public void unsubscribe(ClientIdentity clientIdentity) throws CanalMetaManagerException {
         String path = ZookeeperPathUtils.getClientIdNodePath(clientIdentity.getDestination(),
             clientIdentity.getClientId());
-        zkClientx.deleteRecursive(path); // 递归删除所有信息
+//        zkClientx.deleteRecursive(path); // 递归删除所有信息
     }
 
     public List<ClientIdentity> listAllSubscribeInfo(String destination) throws CanalMetaManagerException {
@@ -145,7 +145,7 @@ public class ZooKeeperMetaManager extends AbstractCanalLifeCycle implements Cana
     public Position getCursor(ClientIdentity clientIdentity) throws CanalMetaManagerException {
         String path = ZookeeperPathUtils.getCursorPath(clientIdentity.getDestination(), clientIdentity.getClientId());
 
-        byte[] data = zkClientx.readData(path, true);
+        byte[] data = null;
         if (data == null || data.length == 0) {
             return null;
         }
@@ -156,11 +156,11 @@ public class ZooKeeperMetaManager extends AbstractCanalLifeCycle implements Cana
     public void updateCursor(ClientIdentity clientIdentity, Position position) throws CanalMetaManagerException {
         String path = ZookeeperPathUtils.getCursorPath(clientIdentity.getDestination(), clientIdentity.getClientId());
         byte[] data = JsonUtils.marshalToByte(position, SerializerFeature.WriteClassName);
-        try {
-            zkClientx.writeData(path, data);
-        } catch (ZkNoNodeException e) {
-            zkClientx.createPersistent(path, data, true);// 第一次节点不存在，则尝试重建
-        }
+//        try {
+//            zkClientx.writeData(path, data);
+//        } catch (ZkNoNodeException e) {
+//            zkClientx.createPersistent(path, data, true);// 第一次节点不存在，则尝试重建
+//        }
     }
 
     public Long addBatch(ClientIdentity clientIdentity, PositionRange positionRange) throws CanalMetaManagerException {
@@ -170,7 +170,7 @@ public class ZooKeeperMetaManager extends AbstractCanalLifeCycle implements Cana
         String batchPath = zkClientx
             .createPersistentSequential(path + ZookeeperPathUtils.ZOOKEEPER_SEPARATOR, data, true);
         String batchIdString = StringUtils.substringAfterLast(batchPath, ZookeeperPathUtils.ZOOKEEPER_SEPARATOR);
-        return ZookeeperPathUtils.getBatchMarkId(batchIdString);
+        return null;
     }
 
     public void addBatch(ClientIdentity clientIdentity, PositionRange positionRange,
@@ -178,13 +178,13 @@ public class ZooKeeperMetaManager extends AbstractCanalLifeCycle implements Cana
         String path = ZookeeperPathUtils
             .getBatchMarkWithIdPath(clientIdentity.getDestination(), clientIdentity.getClientId(), batchId);
         byte[] data = JsonUtils.marshalToByte(positionRange, SerializerFeature.WriteClassName);
-        zkClientx.createPersistent(path, data, true);
+//        zkClientx.createPersistent(path, data, true);
     }
 
     public PositionRange removeBatch(ClientIdentity clientIdentity, Long batchId) throws CanalMetaManagerException {
         String batchsPath = ZookeeperPathUtils.getBatchMarkPath(clientIdentity.getDestination(),
             clientIdentity.getClientId());
-        List<String> nodes = zkClientx.getChildren(batchsPath);
+        List<String> nodes = null;
         if (CollectionUtils.isEmpty(nodes)) {
             // 没有batch记录
             return null;
@@ -206,11 +206,11 @@ public class ZooKeeperMetaManager extends AbstractCanalLifeCycle implements Cana
             return null;
         }
         PositionRange positionRange = getBatch(clientIdentity, batchId);
-        if (positionRange != null) {
-            String path = ZookeeperPathUtils
-                .getBatchMarkWithIdPath(clientIdentity.getDestination(), clientIdentity.getClientId(), batchId);
-            zkClientx.delete(path);
-        }
+//        if (positionRange != null) {
+//            String path = ZookeeperPathUtils
+//                .getBatchMarkWithIdPath(clientIdentity.getDestination(), clientIdentity.getClientId(), batchId);
+//            zkClientx.delete(path);
+//        }
 
         return positionRange;
     }
@@ -218,7 +218,7 @@ public class ZooKeeperMetaManager extends AbstractCanalLifeCycle implements Cana
     public PositionRange getBatch(ClientIdentity clientIdentity, Long batchId) throws CanalMetaManagerException {
         String path = ZookeeperPathUtils
             .getBatchMarkWithIdPath(clientIdentity.getDestination(), clientIdentity.getClientId(), batchId);
-        byte[] data = zkClientx.readData(path, true);
+        byte[] data = null;
         if (data == null) {
             return null;
         }
@@ -230,11 +230,11 @@ public class ZooKeeperMetaManager extends AbstractCanalLifeCycle implements Cana
     public void clearAllBatchs(ClientIdentity clientIdentity) throws CanalMetaManagerException {
         String path = ZookeeperPathUtils.getBatchMarkPath(clientIdentity.getDestination(),
             clientIdentity.getClientId());
-        List<String> batchChilds = zkClientx.getChildren(path);
+        List<String> batchChilds = null;
 
         for (String batchChild : batchChilds) {
             String batchPath = path + ZookeeperPathUtils.ZOOKEEPER_SEPARATOR + batchChild;
-            zkClientx.delete(batchPath);
+//            zkClientx.delete(batchPath);
         }
     }
 
@@ -243,7 +243,7 @@ public class ZooKeeperMetaManager extends AbstractCanalLifeCycle implements Cana
             clientIdentity.getClientId());
         List<String> nodes = null;
         try {
-            nodes = zkClientx.getChildren(path);
+//            nodes = zkClientx.getChildren(path);
         } catch (ZkNoNodeException e) {
             // ignore
         }
@@ -270,7 +270,7 @@ public class ZooKeeperMetaManager extends AbstractCanalLifeCycle implements Cana
             clientIdentity.getClientId());
         List<String> nodes = null;
         try {
-            nodes = zkClientx.getChildren(path);
+//            nodes = zkClientx.getChildren(path);
         } catch (ZkNoNodeException e) {
             // ignore
         }
@@ -297,7 +297,7 @@ public class ZooKeeperMetaManager extends AbstractCanalLifeCycle implements Cana
             clientIdentity.getClientId());
         List<String> nodes = null;
         try {
-            nodes = zkClientx.getChildren(path);
+//            nodes = zkClientx.getChildren(path);
         } catch (ZkNoNodeException e) {
             // ignore
         }

@@ -36,64 +36,20 @@ public class CanalKafkaProducer implements CanalMQProducer {
 
     private static final Logger logger = LoggerFactory.getLogger(CanalKafkaProducer.class);
 
-    private Producer<String, Message> producer;
-    private Producer<String, String> producer2;                                                 // 用于扁平message的数据投递
-    private MQProperties kafkaProperties;
+//    private Producer<String, Message> producer;
+//    private Producer<String, String> producer2;                                                 // 用于扁平message的数据投递
+//    private MQProperties kafkaProperties;
 
     @Override
     public void init(MQProperties kafkaProperties) {
-        this.kafkaProperties = kafkaProperties;
-        Properties properties = new Properties();
-        properties.put("bootstrap.servers", kafkaProperties.getServers());
-        properties.put("acks", kafkaProperties.getAcks());
-        properties.put("compression.type", kafkaProperties.getCompressionType());
-        properties.put("batch.size", kafkaProperties.getBatchSize());
-        properties.put("linger.ms", kafkaProperties.getLingerMs());
-        properties.put("max.request.size", kafkaProperties.getMaxRequestSize());
-        properties.put("buffer.memory", kafkaProperties.getBufferMemory());
-        properties.put("key.serializer", StringSerializer.class.getName());
-        properties.put("max.in.flight.requests.per.connection", 1);
 
-        if (!kafkaProperties.getProperties().isEmpty()) {
-            properties.putAll(kafkaProperties.getProperties());
-        }
-        properties.put("retries", kafkaProperties.getRetries());
-        if (kafkaProperties.isKerberosEnable()) {
-            File krb5File = new File(kafkaProperties.getKerberosKrb5FilePath());
-            File jaasFile = new File(kafkaProperties.getKerberosJaasFilePath());
-            if (krb5File.exists() && jaasFile.exists()) {
-                // 配置kerberos认证，需要使用绝对路径
-                System.setProperty("java.security.krb5.conf", krb5File.getAbsolutePath());
-                System.setProperty("java.security.auth.login.config", jaasFile.getAbsolutePath());
-                System.setProperty("javax.security.auth.useSubjectCredsOnly", "false");
-                properties.put("security.protocol", "SASL_PLAINTEXT");
-                properties.put("sasl.kerberos.service.name", "kafka");
-            } else {
-                String errorMsg = "ERROR # The kafka kerberos configuration file does not exist! please check it";
-                logger.error(errorMsg);
-                throw new RuntimeException(errorMsg);
-            }
-        }
-
-        if (!kafkaProperties.getFlatMessage()) {
-            properties.put("value.serializer", MessageSerializer.class.getName());
-            producer = new KafkaProducer<String, Message>(properties);
-        } else {
-            properties.put("value.serializer", StringSerializer.class.getName());
-            producer2 = new KafkaProducer<String, String>(properties);
-        }
     }
 
     @Override
     public void stop() {
         try {
             logger.info("## stop the kafka producer");
-            if (producer != null) {
-                producer.close();
-            }
-            if (producer2 != null) {
-                producer2.close();
-            }
+
         } catch (Throwable e) {
             logger.warn("##something goes wrong when stopping kafka producer:", e);
         } finally {
@@ -130,7 +86,7 @@ public class CanalKafkaProducer implements CanalMQProducer {
 
     private void send(MQProperties.CanalDestination canalDestination, String topicName, Message message)
             throws Exception {
-        if (!kafkaProperties.getFlatMessage()) {
+        if (false) {
             List<ProducerRecord> records = new ArrayList<ProducerRecord>();
             if (canalDestination.getPartitionHash() != null && !canalDestination.getPartitionHash().isEmpty()) {
                 Message[] messages = MQMessageUtils.messagePartition(message,
@@ -158,10 +114,6 @@ public class CanalKafkaProducer implements CanalMQProducer {
              * key=tablename+keysvalue
              * */
             if ("true".equals(canalDestination.getIsTablePkHash())) {
-                if (flatMessages != null) {
-                    produceByKeyFlatFlatMessages(topicName,flatMessages,canalDestination);
-                }
-            } else {
                 if (flatMessages != null) {
                     for (FlatFlatMessage flatMessage : flatMessages) {
                         String key = "";
@@ -212,18 +164,13 @@ public class CanalKafkaProducer implements CanalMQProducer {
 
     private void produce(String topicName, List<ProducerRecord> records, boolean flatMessage) {
 
-        Producer producerTmp = null;
-        if (flatMessage) {
-            producerTmp = producer2;
-        } else {
-            producerTmp = producer;
-        }
+
 
         List<Future> futures = new ArrayList<Future>();
         try {
             // 异步发送，因为在partition hash的时候已经按照每个分区合并了消息，走到这一步不需要考虑单个分区内的顺序问题
             for (ProducerRecord record : records) {
-                futures.add(producerTmp.send(record));
+//                futures.add(producerTmp.send(record));
             }
         } finally {
             if (logger.isDebugEnabled()) {
@@ -232,7 +179,7 @@ public class CanalKafkaProducer implements CanalMQProducer {
                 }
             }
             // 批量刷出
-            producerTmp.flush();
+//            producerTmp.flush();
 
             // flush操作也有可能是发送失败,这里需要异步关注一下发送结果,针对有异常的直接出发rollback
             for (Future future : futures) {
@@ -247,10 +194,11 @@ public class CanalKafkaProducer implements CanalMQProducer {
 
     private void produceByKeyFlatFlatMessage(String topicName, String key, FlatFlatMessage flatFlatMessage) throws ExecutionException,
             InterruptedException {
-        ProducerRecord<String, String> record = new ProducerRecord<String, String>(topicName,
-                key,
-                JSON.toJSONString(flatFlatMessage, SerializerFeature.WriteMapNullValue));
-        producer2.send(record).get();
+//        ProducerRecord<String, String> record = new ProducerRecord<String, String>(topicName,
+//                key,
+//                JSON.toJSONString(flatFlatMessage, SerializerFeature.WriteMapNullValue));
+//        producer2.send(record).get();
+        System.out.println(JSON.toJSONString(flatFlatMessage));
 
     }
 
@@ -279,10 +227,11 @@ public class CanalKafkaProducer implements CanalMQProducer {
                         }
                     }
                 }
-                ProducerRecord<String, String> record = new ProducerRecord<String, String>(topicName,
-                        keyBuilder.toString(),
-                        JSON.toJSONString(flatMessage, SerializerFeature.WriteMapNullValue));
-                futures.add(producer2.send(record));
+//                ProducerRecord<String, String> record = new ProducerRecord<String, String>(topicName,
+//                        keyBuilder.toString(),
+//                        JSON.toJSONString(flatMessage, SerializerFeature.WriteMapNullValue));
+//                futures.add(producer2.send(record));
+                System.out.println(JSON.toJSONString(flatMessage));
             }
         }finally {
             if (logger.isDebugEnabled()) {
@@ -291,7 +240,7 @@ public class CanalKafkaProducer implements CanalMQProducer {
                 }
             }
             // 批量刷出
-            producer2.flush();
+//            producer2.flush();
             // flush操作也有可能是发送失败,这里需要异步关注一下发送结果,针对有异常的直接出发rollback
             for (Future future : futures) {
                 try {

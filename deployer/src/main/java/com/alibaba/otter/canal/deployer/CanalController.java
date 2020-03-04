@@ -140,13 +140,13 @@ public class CanalController {
         if (StringUtils.isEmpty(registerIp)) {
             registerIp = ip; // 兼容以前配置
         }
-        final String zkServers = getProperty(properties, CanalConstants.CANAL_ZKSERVERS);
-        if (StringUtils.isNotEmpty(zkServers)) {
-            zkclientx = ZkClientx.getZkClient(zkServers);
-            // 初始化系统目录
-            zkclientx.createPersistent(ZookeeperPathUtils.DESTINATION_ROOT_NODE, true);
-            zkclientx.createPersistent(ZookeeperPathUtils.CANAL_CLUSTER_ROOT_NODE, true);
-        }
+//        final String zkServers = getProperty(properties, CanalConstants.CANAL_ZKSERVERS);
+//        if (StringUtils.isNotEmpty(zkServers)) {
+//            zkclientx = ZkClientx.getZkClient(zkServers);
+//            // 初始化系统目录
+//            zkclientx.createPersistent(ZookeeperPathUtils.DESTINATION_ROOT_NODE, true);
+//            zkclientx.createPersistent(ZookeeperPathUtils.CANAL_CLUSTER_ROOT_NODE, true);
+//        }
 
         final ServerRunningData serverData = new ServerRunningData(cid, registerIp + ":" + port);
         ServerRunningMonitors.setServerData(serverData);
@@ -232,7 +232,7 @@ public class CanalController {
         }));
 
         // 初始化monitor机制
-        autoScan = BooleanUtils.toBoolean(getProperty(properties, CanalConstants.CANAL_AUTO_SCAN));
+        autoScan = false;
         if (autoScan) {
             defaultAction = new InstanceAction() {
 
