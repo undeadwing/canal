@@ -264,8 +264,6 @@ public class CanalKafkaProducer implements CanalMQProducer {
                 StringBuilder keyBuilder = new StringBuilder();
                 //根据配置做key
                 if(hashMode!=null){
-                    keyBuilder.append(flatMessage.getDatabase());
-                    keyBuilder.append(flatMessage.getTable());
                     for (String pkName : hashMode.pkNames) {
                         keyBuilder.append(flatMessage.getData().get(pkName));
                     }
