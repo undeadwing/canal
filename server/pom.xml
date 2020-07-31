@@ -28,8 +28,8 @@
 		<!-- kafka -->
 		<dependency>
 			<groupId>org.apache.kafka</groupId>
-			<artifactId>kafka_2.11</artifactId>
-			<version>1.1.1</version>
+			<artifactId>kafka_2.12</artifactId>
+			<version>2.2.1-cdh6.3.1</version>
 			<exclusions>
 				<exclusion>
 					<groupId>org.slf4j</groupId>
